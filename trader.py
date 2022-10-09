@@ -10,52 +10,39 @@ import matplotlib.pyplot as plt
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.model_selection import train_test_split
 
-# def load_data(args):
-#   #只要open high
-#   training_data= pd.read_csv('.\\' + args.training, header = None)
-#   testing_data = pd.read_csv('.\\' + args.testing, header = None)
-#   training_data= pd.read_csv('.\\' + args.training,
-#     names=["Open", "High", "Low", "Close"])
-#   print (training_data)
-#   testing_data = pd.read_csv('.\\' + args.testing,
-#     names=["Open", "High", "Low", "Close"])
-#   print (testing_data)
-#   #train_set = training_data[0]
-#   #test_set = pd.read_csv(testing_data, header = None)
-#   #print (args.training)
-#   #print (training_data)
-#   #print (train_set)
+# import keras
+from keras.models import Sequential
+from keras.layers import LSTM
+from keras.layers import Dense
+from keras.models import load_model
 
-# def data_Analysis(df):
-    # # 可以用 matplotlib 做出多張子圖，再用 seaborn 畫在這些子圖上
-    # fig, axis = plt.subplots(1, 3, figsize=(16, 12))
+def LSTM_Mode(X_train, y_train):
+    model = Sequential()
+    model.add(LSTM(input_shape=(None, 1), units=256, unroll=False))
+    model.add(Dense(units=1))
+    # model.compile(optimizer='adam', loss='mean_squared_error',
+    #               metrics=['accuracy'])
+    model.compile(optimizer='adam', loss='mse',
+                  metrics=['accuracy'])
+    # https://keras.io/zh/models/sequential/
+    # model.fit(X_train, y_train, batch_size=10, nb_epoch=200)
+    model.fit(X_train, y_train, batch_size=100, epochs=100,
+              validation_split=0.2, verbose=2)
+    model.save('LTMS_mode.h5')
+    return model
 
-    # # ax 傳進上面做出的子圖，axis[1,2] 就代表要畫在第 1 個 row，第 2 個 column 這張子圖上
-    # sns.boxplot(x = "Open", y = "High", data = df, ax = axis[0])
-    # sns.boxplot(x = 'Open', y = 'Low', data=df, ax = axis[1])
-    # sns.boxplot(x = 'Open', y = 'Close', data=df, ax = axis[2])
-    
-    # plt.tight_layout()
-    # plt.show()
-    
-    # print(df.corr())
-    # #相關係數, 用熱點圖來觀察
-    # plt.figure(figsize=(10, 8))
-    # data_corr = df.corr()
-    # #熱點圖最大值為1, 最小值為0.7, 將數值顯示在熱點圖上
-    # sns.heatmap(data_corr, vmax = 1, vmin = 0.9999999, square=True, annot=True)
-    # plt.show()
-    # fig, axis = plt.subplots(1, 3, figsize=(16, 12))
-    # ax = df.Open.plot(kind='kde')
-    # df.Open.plot(kind='hist', bins=40, ax=ax)
-    # df.Open.plot(kind='kde', ax=ax, secondary_y=True)
-    # ax.set_xlabel('Open')
-    
-    # ax_High = df.High.plot(kind='kde')
-    # df.High.plot(kind='hist', bins=40, ax=ax_High)
-    # df.High.plot(kind='kde', ax=ax_High, secondary_y=True)
-    # ax_High.set_xlabel('High')
-    
+
+def Verify_and_TestPredict(predict_data, y_valid):
+    # predict_data = model.predict(X_train)
+    # predict = scaler.inverse_transform(predict)
+    # verif_y = scaler.inverse_transform(y_valid)
+    plt.figure(figsize=(12, 6))
+    plt.plot(predict_data, 'b-')
+    plt.plot(y_valid, 'r-')
+    plt.legend(['predict', 'realdata'])
+    plt.show()
+
+
 if __name__ == "__main__":
     # You should not modify this part.
     import argparse
@@ -74,6 +61,8 @@ if __name__ == "__main__":
     # Read CSV Dataset
     training_data = pd.read_csv('.\\' + args.training,
                                 names=["Open", "High", "Low", "Close"])
+    test_data = pd.read_csv('.\\' + args.testing,
+                            names=["Open", "High", "Low", "Close"])
     data_Length = training_data.shape[0]
     # print(type(source_X))
     # data_Analysis(training_data)
@@ -83,6 +72,8 @@ if __name__ == "__main__":
     # print (df)
     X_preproc = df[["High", "Low", "Close"]]
     y_preproc = df["Open"]
+
+    test_preproc = test_data["Open"]
     '''
     Use MinMaxScaler
     Transform features by scaling each feature to a given range.
@@ -97,18 +88,30 @@ if __name__ == "__main__":
     df_X_normalize = pd.DataFrame(X_normalize,
                                   columns=["High", "Low", "Close"])
     # print(df_X_normalize)
+
     # X_train, X_valid, y_train, y_valid = train_test_split(
     #     df_X_normalize, y_preproc, random_state=9527)
-    
+
     X_train, X_valid, y_train, y_valid = train_test_split(
         df_X_normalize, y_preproc, train_size=0.8,
         random_state=None, shuffle=False)
-    
-    # Start Traing Mode
     print(X_train)
+
+    # Start Traing Mode
+    # method 1
+    # Mode_1 = LSTM_Mode(X_train, y_train)
+    Mode_1 = load_model('LTMS_mode.h5')
+    predict_data = X_train[["High", "Low", "Close"]]
+    predict_data = Mode_1.predict(predict_data)
+    # print(predict_data)
+
+    predict_data = scaler.inverse_transform(predict_data)
+    #print(predict_data)
+    # print(y_train)
+    
+    #Verify_and_TestPredict(predict_data, y_train)
+
     # data_Analysis(training_data)
-
-
     # print (df)
     # print (df.size)
     
