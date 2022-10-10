@@ -11,10 +11,8 @@ from sklearn.preprocessing import MinMaxScaler
 from sklearn.model_selection import train_test_split
 
 import keras
-from keras.models import Sequential
-from keras.layers import LSTM
-from keras.layers import Dense
-from keras.models import load_model
+from keras.models import Sequential, load_model
+from keras.layers import LSTM, Dense, Dropout
 from tensorflow.keras.callbacks import EarlyStopping
 
 
@@ -23,35 +21,147 @@ cust_callback = [
     ]
 
 
-def LSTM_Mode(X_train, y_train):
-    # callback = tf.keras.callbacks.EarlyStopping(monitor='loss', patience=3)
-    
+def LSTM_Mode(X_train, y_train, input_length, input_dim):
+    # Setting Model
+    d = 0.3
     model = Sequential()
-    model.add(LSTM(input_shape=(None, 1), units=8, unroll=False))
-    model.add(Dense(units=2))
-    # model.compile(optimizer='adam', loss='mean_squared_error',
+    model.add(LSTM(256, input_shape=(input_length, input_dim),
+                   return_sequences=True, dropout=0.1, recurrent_dropout=d))
+    model.add(Dropout(d))
+    model.add(LSTM(128, input_shape=(input_length, input_dim),
+                   return_sequences=True, dropout=0.1, recurrent_dropout=d))
+    model.add(Dropout(d))
+    model.add(LSTM(64, input_shape=(input_length, input_dim),
+                   return_sequences=True, dropout=0.1, recurrent_dropout=d))
+    model.add(Dropout(d))
+    model.add(LSTM(16, input_shape=(input_length, input_dim),
+                   return_sequences=False, dropout=0.1, recurrent_dropout=d))
+    model.add(Dropout(d))
+
+    # linear / softmax(多分類) / sigmoid(二分法)
+    model.add(Dense(1, activation='linear'))
+    # optimizer = tf.keras.optimizers.Adam(lr=0.00005)
+    # loss=mse/categorical_crossentropy
+    model.compile(loss='mse', optimizer='adam', metrics=['accuracy'])
+
+    # fit
+    # model = Sequential()
+    # model.add(LSTM(input_shape=(None, 1), units=8, unroll=False))
+    # model.add(Dense(units=2))
+    # # model.compile(optimizer='adam', loss='mean_squared_error',
+    # #               metrics=['accuracy'])
+    # opt = keras.optimizers.Adam(learning_rate=0.01)
+    # model.compile(optimizer=opt, loss='mse',
     #               metrics=['accuracy'])
-    opt = keras.optimizers.Adam(learning_rate=0.01)
-    model.compile(optimizer=opt, loss='mse',
-                  metrics=['accuracy'])
-    # https://keras.io/zh/models/sequential/
-    # model.fit(X_train, y_train, batch_size=10, nb_epoch=200)
-    model.fit(X_train, y_train, batch_size=8, epochs=100,
-              validation_split=0.2, verbose=2,
+    # # https://keras.io/zh/models/sequential/
+    # # model.fit(X_train, y_train, batch_size=10, nb_epoch=200)
+    # # model.fit(X_train, y_train, batch_size=8, epochs=100,
+    # #           validation_split=0.2, verbose=2,
+    # #           callbacks=cust_callback)
+    model.summary()
+    model.fit(X_train, y_train, batch_size=16, epochs=1000,
+              validation_split=0.2, verbose=2, shuffle=False,
               callbacks=cust_callback)
     model.save('LTMS_mode.h5')
     return model
 
 
-def Verify_and_TestPredict(predict_data, y_valid):
-    # predict_data = model.predict(X_train)
-    # predict = scaler.inverse_transform(predict)
-    # verif_y = scaler.inverse_transform(y_valid)
-    plt.figure(figsize=(12, 6))
-    plt.plot(predict_data, 'b-')
-    plt.plot(y_valid, 'r-')
-    plt.legend(['predict', 'realdata'])
+def data_visualization(train, test):
+    plt.plot(train.iloc[80:160, 0:1], color='blue', label='open')
+    plt.plot(train.iloc[80:160, 1:2], color='red', label='high')
+    plt.plot(train.iloc[80:160, 2:3], color='green', label='low')
+    plt.plot(train.iloc[80:160, 3:4], color='black', label='close')
+    plt.legend()
+    plt.xticks(range(80, 170, 10))
     plt.show()
+
+    plt.plot(test.iloc[:, 0], color='blue', label='open')
+    plt.plot(test.iloc[:, 1], color='red', label='high')
+    plt.plot(test.iloc[:, 2], color='green', label='low')
+    plt.plot(test.iloc[:, 3], color='black', label='close')
+    plt.legend()
+    plt.xticks(range(0, 25, 5))
+    plt.show()
+
+
+def preProcessData(training_data, test_data, sc_x, sc_y, sequence_length):
+    temp_set = pd.concat([training_data, test_data], axis = 0)
+    # print (temp_set)
+    Data_Length =len(temp_set)
+    #print("Data_Length:" + str(Data_Length))
+    
+    # training_data = temp_set[0:-20]
+    # print (training_data)
+    # testing_data = temp_set[-20:]
+    # print (testing_data)
+    '''
+    Use MinMaxScaler
+    Transform features by scaling each feature to a given range.
+     This estimator scales and translates each feature individually
+      such that it is in the given range on the training set,
+      e.g. between zero and one.
+    '''
+    # Rescale Data
+    # scaler.fit(pre_ConcatData)
+    # sc_x.partial_fit(training_data)
+    # sc_x.partial_fit(test_data)
+    # sc_y.partial_fit([test_data["Close"]])
+    # sc_y.partial_fit([training_data["Close"]])
+    # sc_y.fit([np.concatenate([test_data["Close"], training_data["Close"]])])
+    sc_x.fit(temp_set)
+    sc_y.fit([temp_set["Close"]])
+
+    X_normalize = sc_x.fit_transform(training_data)
+    df_X_normalize = pd.DataFrame(X_normalize,
+                                  columns=["Open", "High", "Low", "Close"])
+
+    # scaler.partial_fit(training_data["Open"])
+    # scaler.partial_fit(training_data["High"])
+    # scaler.partial_fit(training_data["Low"])
+    # scaler.partial_fit(training_data["Close"])
+    # scaler.partial_fit(test_data["Open"])
+    # scaler.partial_fit(test_data["High"])
+    # scaler.partial_fit(test_data["Low"])
+    # scaler.partial_fit(test_data["Close"])
+
+    # X_normalize = scaler.fit_transform(training_data["Close"])
+    # df_X_normalize = pd.DataFrame(X_normalize,
+    #                               columns=["Close"])
+    # print(df_X_normalize)
+
+    # X_normalize = scaler.fit_transform(test_data)
+    # df_X_normalize = pd.DataFrame(X_normalize,
+    #                               columns=["Open", "High", "Low", "Close"])
+    # print(df_X_normalize)
+
+    # Select feature Set train set
+    train_set = df_X_normalize.iloc[:, 3]
+    # print(train_set)
+
+    # preparation sequence Data
+    # sequence_length = 10
+    data = []
+    for i in range(len(train_set) - sequence_length):
+        data.append(train_set[i: i + sequence_length + 1])
+    # print(data)
+
+    reshaped_data = np.array(data)
+    x = reshaped_data[:, :-1]
+    # print(x)
+    y = reshaped_data[:, -1]
+    # print(y)
+    ''' Spilt Data (train set and test set) '''
+    split_boundary = int(reshaped_data.shape[0] * 0.8)
+    # print(split_boundary)
+    train_x = x[: split_boundary]
+    # print(train_x)
+    test_x = x[split_boundary:]
+    # print(test_x)
+    train_y = y[: split_boundary]
+    # print(test_x)
+    test_y = y[split_boundary:]
+    # print(test_y)
+    return train_x, test_x, train_y, test_y, Data_Length
 
 
 if __name__ == "__main__":
@@ -69,100 +179,70 @@ if __name__ == "__main__":
 
     # The following part is an example.
     # You can modify it at will.
+    ''' We use path 3 days price to predict the next day '''
+    DayTime_Step = 10
     # Read CSV Dataset
     training_data = pd.read_csv('.\\' + args.training,
                                 names=["Open", "High", "Low", "Close"])
     test_data = pd.read_csv('.\\' + args.testing,
                             names=["Open", "High", "Low", "Close"])
-    data_Length = training_data.shape[0]
-    # print(type(source_X))
-    # data_Analysis(training_data)
-    df = training_data.iloc[:, 0:4].values
-    # print (df)
-    df = training_data[["Open", "High", "Low", "Close"]]
-    df_Open = training_data[["Open"]]
-    df_High = training_data[["High"]]
-    df_Low = training_data[["Low"]]
-    df_Close = training_data[["Close"]]
-    # print (df)
-    X_preproc = df[["High", "Low", "Close"]]
-    y_preproc = df["Open"]
-
-    test_preproc = test_data["Open"]
-    '''
-    Use MinMaxScaler
-    Transform features by scaling each feature to a given range.
-     This estimator scales and translates each feature individually
-      such that it is in the given range on the training set,
-      e.g. between zero and one.
-    '''
-    # Rescale Data
-    scaler = MinMaxScaler()
-    # scaler = MinMaxScaler(feature_range=(0, 1))
-    # scaler.fit(X_preproc)
-    # scaler.partial_fit(df_Open)
-    scaler.partial_fit(df_High, df_Open)
-    scaler.partial_fit(df_Low, df_Open)
-    scaler.partial_fit(df_Close, df_Open)
-    # print (df)
-    # X_normalize = scaler.fit_transform(X_preproc)
-    # df_X_normalize = pd.DataFrame(X_normalize,
-    #                               columns=["High", "Low", "Close"])
-    df_High_normalize = scaler.fit_transform(df_High)
-    df_Low_normalize = scaler.fit_transform(df_Low)
-    df_Close_normalize = scaler.fit_transform(df_Close)
-    # print(df_High_normalize)
-
-    X_normalize = np.concatenate([df_High_normalize, df_Low_normalize,
-                                 df_Close_normalize], axis=1)
-
-    # X_normalize = pd.concat([df_High_normalize, df_Low_normalize,
-    #                           df_Close_normalize], axis=1)
-    # print(X_normalize)
-
-    # try pre columns=["High", "Low", "Close"]
-    df_X_normalize = pd.DataFrame(X_normalize,
-                                  columns=["High", "Low", "Close"])
-    # print(df_X_normalize)
-    # Rescale Data
+    # data_visualization(training_data, test_data)
+    scaler_x = MinMaxScaler(feature_range=(0, 1))
+    scaler_y = MinMaxScaler(feature_range=(0, 1))
+    train_x, test_x, train_y, test_y, Data_Length = preProcessData(
+        training_data, test_data, scaler_x, scaler_y, DayTime_Step)
+    # setting & compile & fit model
+    # model_1 = LSTM_Mode(train_x, train_y, DayTime_Step, 1)
+    # For Test Use
     
+    model_1 = keras.models.load_model('./LTMS_mode.h5')
     
-    # X_train, X_valid, y_train, y_valid = train_test_split(
-    #     df_X_normalize, y_preproc, random_state=9527)
-
-    X_train, X_valid, y_train, y_valid = train_test_split(
-        df_X_normalize, y_preproc, train_size=0.8,
-        random_state=None, shuffle=False)
-    #print(X_train)
+    # print(test_x)
+    # # Process testing Data
+    # predict = model_1.predict(test_x)
+    # print(predict)
+    # print(len(predict))
+    # predict = scaler_y.inverse_transform(predict)
+    # test_y = scaler.inverse_transform(test_y)
     
+    # plt.figure(figsize=(12,6))
+    # plt.plot(predict, 'b-')
+    # plt.plot(test_y, 'r-')
+    # plt.legend(['predict', 'realdata'])
+    # plt.show()
     
-    # Start Traing Mode
-    # method 1
-    Mode_1 = LSTM_Mode(X_train, y_train)
-    Mode_1 = load_model('LTMS_mode.h5')
-    # predict_data = X_train[["High", "Low", "Close"]]
-    # predict_data = Mode_1.predict(X_train)
-    predict_data = Mode_1.predict(X_train)
-    # print(predict_data)
-
-    predict_data = scaler.inverse_transform(predict_data)
-    print(predict_data)
-    # print(y_train)
-
-
     # data_Analysis(training_data)
 
-    
-    # scaler.fit( training_data["Open"] )    
-    # training_data = load_data(args)
-    # trader = Trader()
-    # trader.train(training_data)
-    # read
+    # read Test data
     # testing_data = load_data(args.testing)
-    # with open(args.output, "w") as output_file:
-    #     for row in testing_data:
-    #         # We will perform your action as the open price in the next day.
-    #         action = trader.predict_action(row)
+    test_data_close = test_data['Close']
+    print(test_data_close)
+    print(type(test_data_close))
+    with open(args.output, "w") as output_file:
+        # for (col_Name, col_Data) in test_data.iteritems():
+        # for column in test_data[["Close"]]:
+        # for index in test_data.index:
+        for i in range(len(test_data_close)):
+            # We will perform your action as the open price in the next day.
+            # print(test_data_close[i])
+            
+            train_predict_new = np.zeros(shape=(1, Data_Length))
+            train_predict_new[:, 0] = test_data_close[i]
+            # print(train_predict_new)
+            trainPredict = scaler_y.transform(train_predict_new)[:, 0]
+            # print(trainPredict)
+            
+            predict = model_1.predict(np.array(trainPredict, ndmin=2))
+            # predict = model_1.predict(np.array(test_data_close[i], ndmin=2))
+            train_predict_new = np.zeros(shape=(len(predict), Data_Length))
+            train_predict_new[:, 0] = predict[:, 0]
+            trainPredict = scaler_y.inverse_transform(train_predict_new)[:, 0]
+            print(trainPredict)
+
+
+
+
+            # action = trader.predict_action(row)
     #         output_file.write(action)
 
     #         # this is your option, you can leave it empty.
