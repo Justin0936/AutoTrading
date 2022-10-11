@@ -59,11 +59,11 @@ def LSTM_Mode(X_train, y_train, input_length, input_dim):
     # #           validation_split=0.2, verbose=2,
     # #           callbacks=cust_callback)
     model.summary()
-    model.fit(X_train, y_train, batch_size=16, epochs=1000,
-              validation_split=0.2, verbose=2, shuffle=False,
-              callbacks=cust_callback)
+    history = model.fit(X_train, y_train, batch_size=128, epochs=32,
+                        validation_split=0.2, verbose=2, shuffle=False,
+                        callbacks=cust_callback)
     model.save('LTMS_mode.h5')
-    return model
+    return model, history
 
 
 def data_visualization(train, test):
@@ -192,10 +192,14 @@ if __name__ == "__main__":
     train_x, test_x, train_y, test_y, Data_Length = preProcessData(
         training_data, test_data, scaler_x, scaler_y, DayTime_Step)
     # setting & compile & fit model
-    # model_1 = LSTM_Mode(train_x, train_y, DayTime_Step, 1)
-    # For Test Use
-    
-    model_1 = keras.models.load_model('./LTMS_mode.h5')
+    model_1, history = LSTM_Mode(train_x, train_y, DayTime_Step, 1)
+    plt.plot(history.history['loss'], label='Training Loss')
+    plt.plot(history.history['val_loss'], label='Validation Loss')
+    plt.title('Training and Validation Loss by LSTM')
+    plt.legend()
+    plt.show()
+    # For Test Use    
+    # model_1 = keras.models.load_model('./LTMS_mode.h5')
     
     # print(test_x)
     # # Process testing Data
