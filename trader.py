@@ -14,33 +14,37 @@ import keras
 from keras.models import Sequential, load_model
 from keras.layers import LSTM, Dense, Dropout
 from tensorflow.keras.callbacks import EarlyStopping
-
+import tensorflow as tf
 
 cust_callback = [
-    EarlyStopping(monitor='val_loss', patience=10, verbose=2)
+    EarlyStopping(monitor='val_loss', patience=30, verbose=2)
     ]
 
+      
 
 def LSTM_Mode(X_train, y_train, input_length, input_dim):
     # Setting Model
     d = 0.3
     model = Sequential()
     model.add(LSTM(256, input_shape=(input_length, input_dim),
-                   return_sequences=True, dropout=0.1, recurrent_dropout=d))
+                   return_sequences=True, dropout=0.3, recurrent_dropout=d))
     model.add(Dropout(d))
-    model.add(LSTM(128, input_shape=(input_length, input_dim),
-                   return_sequences=True, dropout=0.1, recurrent_dropout=d))
-    model.add(Dropout(d))
-    model.add(LSTM(64, input_shape=(input_length, input_dim),
-                   return_sequences=True, dropout=0.1, recurrent_dropout=d))
-    model.add(Dropout(d))
-    model.add(LSTM(16, input_shape=(input_length, input_dim),
-                   return_sequences=False, dropout=0.1, recurrent_dropout=d))
-    model.add(Dropout(d))
+    # model.add(LSTM(128, input_shape=(input_length, input_dim),
+    #                return_sequences=True, dropout=0.25, recurrent_dropout=d))
+    # model.add(Dropout(d))
+    # model.add(LSTM(64, input_shape=(input_length, input_dim),
+    #                return_sequences=True, dropout=0.2, recurrent_dropout=d))
+    # model.add(Dropout(d))
+    # model.add(LSTM(16, input_shape=(input_length, input_dim),
+    #                 return_sequences=False, dropout=0.1, recurrent_dropout=d))
+    # model.add(Dropout(d))
 
     # linear / softmax(多分類) / sigmoid(二分法)
-    model.add(Dense(1, activation='linear'))
+    # model.add(Dense(1, activation='linear'))
+    model.add(keras.layers.TimeDistributed(Dense(1, activation='linear')))
+    
     # optimizer = tf.keras.optimizers.Adam(lr=0.00005)
+    # model.compile(loss='mse', optimizer=optimizer, metrics=['accuracy'])
     # loss=mse/categorical_crossentropy
     model.compile(loss='mse', optimizer='adam', metrics=['accuracy'])
 
@@ -58,8 +62,9 @@ def LSTM_Mode(X_train, y_train, input_length, input_dim):
     # # model.fit(X_train, y_train, batch_size=8, epochs=100,
     # #           validation_split=0.2, verbose=2,
     # #           callbacks=cust_callback)
+    
     model.summary()
-    history = model.fit(X_train, y_train, batch_size=128, epochs=32,
+    history = model.fit(X_train, y_train, batch_size=10, epochs=32,
                         validation_split=0.2, verbose=2, shuffle=False,
                         callbacks=cust_callback)
     model.save('LTMS_mode.h5')
@@ -108,9 +113,17 @@ def preProcessData(training_data, test_data, sc_x, sc_y, sequence_length):
     # sc_y.partial_fit([test_data["Close"]])
     # sc_y.partial_fit([training_data["Close"]])
     # sc_y.fit([np.concatenate([test_data["Close"], training_data["Close"]])])
-    sc_x.fit(temp_set)
-    sc_y.fit([temp_set["Close"]])
-
+    
+    # sc_x.fit(temp_set)
+    # sc_y.fit([temp_set["Close"]])
+    sc_x.fit(training_data)
+    sc_y.fit([training_data["Close"]])
+    Data_Length =len(training_data)
+    
+    # sc_y.fit(temp_set["Close"].values.reshape(-1,1))
+    # print(temp_set.iloc[:,3].values.reshape(-1,1))    
+    # print(training_data["Close"].values.reshape(-1,1))
+    
     X_normalize = sc_x.fit_transform(training_data)
     df_X_normalize = pd.DataFrame(X_normalize,
                                   columns=["Open", "High", "Low", "Close"])
@@ -191,15 +204,17 @@ if __name__ == "__main__":
     scaler_y = MinMaxScaler(feature_range=(0, 1))
     train_x, test_x, train_y, test_y, Data_Length = preProcessData(
         training_data, test_data, scaler_x, scaler_y, DayTime_Step)
-    # setting & compile & fit model
+    
+    # # setting & compile & fit model
     model_1, history = LSTM_Mode(train_x, train_y, DayTime_Step, 1)
     plt.plot(history.history['loss'], label='Training Loss')
     plt.plot(history.history['val_loss'], label='Validation Loss')
     plt.title('Training and Validation Loss by LSTM')
     plt.legend()
     plt.show()
+    
     # For Test Use    
-    # model_1 = keras.models.load_model('./LTMS_mode.h5')
+    model_1 = keras.models.load_model('./LTMS_mode.h5')
     
     # print(test_x)
     # # Process testing Data
@@ -219,35 +234,68 @@ if __name__ == "__main__":
 
     # read Test data
     # testing_data = load_data(args.testing)
-    test_data_close = test_data['Close']
-    print(test_data_close)
-    print(type(test_data_close))
-    with open(args.output, "w") as output_file:
-        # for (col_Name, col_Data) in test_data.iteritems():
-        # for column in test_data[["Close"]]:
-        # for index in test_data.index:
-        for i in range(len(test_data_close)):
-            # We will perform your action as the open price in the next day.
-            # print(test_data_close[i])
+    predict_data = np.zeros(shape=(1, Data_Length))
+    # print(len(predict_data[0]))
+    Data = training_data['Close'][-DayTime_Step:].reset_index (drop = True)
+    # print (Data)
+
+    # predict_data[:0] = [training_data['Close'][-DayTime_Step:].to_numpy()]
+    for i in range(len(Data)):
+        # print (Data[i])
+        predict_data[0][i] = Data[i]
+        # print(predict_data[0][i])
+        
+    # -------------    
+    # predict_data = scaler_y.transform(predict_data)
+    # predict_data = [predict_data[-DayTime_Step:].to_numpy()]
+    predict_data = np.delete(predict_data, np.s_[DayTime_Step:], axis=1)
+    print(predict_data)
+    print(type(predict_data))
+    predict = model_1.predict(predict_data)
+    print(predict)
+    
+    train_predict_new = np.zeros(shape=(len(predict), Data_Length))
+    train_predict_new[:, 0] = predict[:, 0]
+    print(train_predict_new)
+    trainPredict = scaler_y.inverse_transform(train_predict_new)[:, 0]
+    print(trainPredict)
+    
+    # print(Data)
+    # predict = model_1.predict(Data)
+    # print(predict)
+    # print(scaler_y.inverse_transform(predict)[:, 0])
+    
+    # --------------------------------------
+    # # predict_data =[-DayTime_Step:]
+    # test_data_close = test_data['Close']
+    # # print(test_data_close)
+    # # print(type(test_data_close))
+    # with open(args.output, "w") as output_file:
+    #     # for (col_Name, col_Data) in test_data.iteritems():
+    #     # for column in test_data[["Close"]]:
+    #     # for index in test_data.index:
+    #     for i in range(len(test_data_close) -1 ):
+    #         # We will perform your action as the open price in the next day.
+    #         # print(test_data_close[i])
             
-            train_predict_new = np.zeros(shape=(1, Data_Length))
-            train_predict_new[:, 0] = test_data_close[i]
-            # print(train_predict_new)
-            trainPredict = scaler_y.transform(train_predict_new)[:, 0]
-            # print(trainPredict)
+    #         train_predict_new = np.zeros(shape=(1, Data_Length))
+    #         train_predict_new[:, 0] = test_data_close[i]
+    #         # print(train_predict_new)
+    #         trainPredict = scaler_y.transform(train_predict_new)[:, 0]
+    #         # print(trainPredict)
             
-            predict = model_1.predict(np.array(trainPredict, ndmin=2))
-            # predict = model_1.predict(np.array(test_data_close[i], ndmin=2))
-            train_predict_new = np.zeros(shape=(len(predict), Data_Length))
-            train_predict_new[:, 0] = predict[:, 0]
-            trainPredict = scaler_y.inverse_transform(train_predict_new)[:, 0]
-            print(trainPredict)
+    #         predict = model_1.predict(np.array(trainPredict, ndmin=2))
+    #         # predict = model_1.predict(np.array(test_data_close[i], ndmin=2))
+    #         train_predict_new = np.zeros(shape=(len(predict), Data_Length))
+    #         train_predict_new[:, 0] = predict[:, 0]
+    #         trainPredict = scaler_y.inverse_transform(train_predict_new)[:, 0]
+    #         print(trainPredict)
 
 
 
 
-            # action = trader.predict_action(row)
-    #         output_file.write(action)
+    #         # action = trader.predict_action(row)
+    # #         output_file.write(action)
 
-    #         # this is your option, you can leave it empty.
-    #         trader.re_training()
+    # #         # this is your option, you can leave it empty.
+    # #         trader.re_training()
