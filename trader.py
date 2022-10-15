@@ -194,6 +194,7 @@ def preProcessData(training_data, test_data, sc_x, sequence_length):
 
 
 def Predicted_Action_Output(args, model_1, DayTime_Step, test_X):
+    # Strategy 1
     first_one = True
     with open(args.output, 'w') as output_file:
         for i in range(DayTime_Step, len(test_X)-1):
@@ -213,13 +214,12 @@ def Predicted_Action_Output(args, model_1, DayTime_Step, test_X):
             # Strategy 1
             if first_one:
                 to_day_price = scaler_x.inverse_transform(
-                    [X_test[0][len(X_test[0])-1]])               
-                
-            print(X_test[0])
-            print(to_day_price)
-            print(predicted_stock_price)
-            # Strategy 2
-            
+                    [X_test[0][len(X_test[0])-1]])
+
+            # print(X_test[0])
+            # print(to_day_price)
+            # print(predicted_stock_price)
+
             # {0:Down,1:UP}
             forecast = 0
             if to_day_price >= predicted_stock_price:
@@ -232,6 +232,48 @@ def Predicted_Action_Output(args, model_1, DayTime_Step, test_X):
                 print("predict Up", forecast)
             if first_one:
                 first_one = False
+            to_day_price = predicted_stock_price
+            output_file.writelines(str(forecast)+"\n")
+
+
+def Predicted_Action_Output_2(args, model_1, DayTime_Step, test_X):
+    # Strategy 2
+    first_one = True
+    with open(args.output, 'w') as output_file:
+        for i in range(DayTime_Step, len(test_X)-1):
+            X_test = []
+            X_test.append(test_X[i-DayTime_Step:i-1, 0])
+            X_test = np.array(X_test)
+            X_test = np.reshape(X_test, (X_test.shape[0], X_test.shape[1], 1))
+            # print("count:", i, X_test)
+            predicted_stock_price = model_1.predict(X_test)
+            # # print("predicted_stock_price:", predicted_stock_price)
+            # # #使用sc的 inverse_transform將股價轉為歸一化前
+            predicted_stock_price = scaler_x.inverse_transform(
+                predicted_stock_price)
+            # print("Count", i, "predicted_stock_price:",
+            #        predicted_stock_price)
+
+            # Strategy 2
+            # if first_one:
+            to_day_price = Average(scaler_x.inverse_transform(X_test[0]))
+
+            print(Average(scaler_x.inverse_transform(X_test[0])))
+            # print(to_day_price)
+            # print(predicted_stock_price)
+
+            # {0:Down,1:UP}
+            forecast = 0
+            if to_day_price >= predicted_stock_price:
+                # predict Down
+                forecast = Stock_Action(0)
+                print("predict Down", forecast)
+            else:
+                # Predict UP
+                forecast = Stock_Action(1)
+                print("predict Up", forecast)
+            # if first_one:
+            #     first_one = False
             to_day_price = predicted_stock_price
             output_file.writelines(str(forecast)+"\n")
 
@@ -288,9 +330,9 @@ if __name__ == "__main__":
     predicted_stock_price = scaler_x.inverse_transform(predicted_stock_price)
 
     plt.plot(test_data['Open'].values, color='black',
-              label='Real Test Stock Price')
+             label='Real Test Stock Price')
     plt.plot(predicted_stock_price, color='green',
-              label='Predicted Stock Price')
+             label='Predicted Stock Price')
     plt.title('Stock Prediction')
     plt.xlabel('Time(days)')
     plt.ylabel('Stock Price')
@@ -298,7 +340,7 @@ if __name__ == "__main__":
     plt.show()
     # ----
     # print(test_X)
-    Predicted_Action_Output(args, model_1, DayTime_Step, test_X)
+    Predicted_Action_Output_2(args, model_1, DayTime_Step, test_X)
     # with open(args.output, 'w') as output_file:
     #     for i in range(DayTime_Step, len(test_X)):
     #         X_test = []
