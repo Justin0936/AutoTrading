@@ -72,6 +72,29 @@ def Stock_Action(forecast):
     return Stock_Action
 
 
+def movingAverage(to_day_price):
+    window_size = 3
+    i = 0
+    moving_averages = []
+
+    while i < len(to_day_price) - window_size + 1:
+
+        # Calculate the average of current window
+        window_average = round(np.sum(to_day_price[
+          i:i+window_size]) / window_size, 2)
+
+        # Store the average of current
+        # window in moving average list
+        moving_averages.append(window_average)
+
+        # Shift window to right by one position
+        i += 1
+
+    print(moving_averages)
+    # return Average(moving_averages)
+    return moving_averages
+
+
 def Average(lst):
     return reduce(lambda a, b: a + b, lst) / len(lst)
 
@@ -254,11 +277,16 @@ def Predicted_Action_Output_2(args, model_1, DayTime_Step, test_X):
             # print("Count", i, "predicted_stock_price:",
             #        predicted_stock_price)
 
-            # Strategy 2
-            # if first_one:
-            to_day_price = Average(scaler_x.inverse_transform(X_test[0]))
+            # # Strategy 2
+            # to_day_price = Average(scaler_x.inverse_transform(X_test[0]))
+            # print(Average(scaler_x.inverse_transform(X_test[0])))
 
-            print(Average(scaler_x.inverse_transform(X_test[0])))
+            # Strategy 3
+            to_day_price = movingAverage(scaler_x.inverse_transform(X_test[0]))
+            print(to_day_price)
+            to_day_price = to_day_price[len(to_day_price)-1]
+            print(to_day_price)
+
             # print(to_day_price)
             # print(predicted_stock_price)
 
@@ -274,7 +302,7 @@ def Predicted_Action_Output_2(args, model_1, DayTime_Step, test_X):
                 print("predict Up", forecast)
             # if first_one:
             #     first_one = False
-            to_day_price = predicted_stock_price
+            # to_day_price = predicted_stock_price
             output_file.writelines(str(forecast)+"\n")
 
 
