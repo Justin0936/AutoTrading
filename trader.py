@@ -14,6 +14,7 @@ import keras
 from keras.models import Sequential, load_model
 from keras.layers import LSTM, Dense, Dropout, Flatten
 from tensorflow.keras.callbacks import EarlyStopping
+from functools import reduce
 import tensorflow as tf
 
 cust_callback = [
@@ -69,6 +70,10 @@ def Stock_Action(forecast):
         # forecase == 0 (down) End.
 
     return Stock_Action
+
+
+def Average(lst):
+    return reduce(lambda a, b: a + b, lst) / len(lst)
 
 
 def LSTM_Mode(X_train, y_train, input_length, input_dim):
@@ -130,7 +135,7 @@ def LSTM_Mode(X_train, y_train, input_length, input_dim):
     # model.compile(loss='mean_squared_error', optimizer=optimizer, metrics=['accuracy'])
     
     model.summary()
-    history = model.fit(X_train, y_train, batch_size=32, epochs=300,
+    history = model.fit(X_train, y_train, batch_size=16, epochs=1000,
                         validation_split=0.2, verbose=2, shuffle=False,
                         callbacks=cust_callback)
     model.save('LTMS_mode.h5')
@@ -177,30 +182,58 @@ def preProcessData(training_data, test_data, sc_x, sequence_length):
 
     # Prepare Test predict dataset
     total_set = pd.concat((training_data['Open'], test_data['Open']), axis=0)
-    #print(total_set)
+    # print(total_set)
     test_X = total_set[len(total_set) - len(test_set)
                        - sequence_length:].values
     # print(test_X)
     test_X = test_X.reshape(-1, 1)
     # print(test_X)
     test_X = sc_x.transform(test_X)
-    
+
     return train_X, train_y, test_X
 
 
-def Test_Ouptdat():
-    # with open(args.output, 'w') as output_file:
-    #     for i in range(len(action)):
+def Predicted_Action_Output(args, model_1, DayTime_Step, test_X):
+    first_one = True
+    with open(args.output, 'w') as output_file:
+        for i in range(DayTime_Step, len(test_X)-1):
             X_test = []
-            for i in range(DayTime_Step, len(test_X)):
-                X_test.append(test_X[i-DayTime_Step:i-1, 0])
-                X_test = np.array(X_test)
-                X_test = np.reshape(X_test, (X_test.shape[0], X_test.shape[1], 1))
-                # print(X_test)
-                # predicted_stock_price = model_1.predict(X_test)
-                # #使用sc的 inverse_transform將股價轉為歸一化前
-                # predicted_stock_price = scaler_x.inverse_transform(predicted_stock_price)
-                # output_file.writelines(str(action[i])+"\n")
+            X_test.append(test_X[i-DayTime_Step:i-1, 0])
+            X_test = np.array(X_test)
+            X_test = np.reshape(X_test, (X_test.shape[0], X_test.shape[1], 1))
+            # print("count:", i, X_test)
+            predicted_stock_price = model_1.predict(X_test)
+            # # print("predicted_stock_price:", predicted_stock_price)
+            # # #使用sc的 inverse_transform將股價轉為歸一化前
+            predicted_stock_price = scaler_x.inverse_transform(
+                predicted_stock_price)
+            # print("Count", i, "predicted_stock_price:",
+            #        predicted_stock_price)
+
+            # Strategy 1
+            if first_one:
+                to_day_price = scaler_x.inverse_transform(
+                    [X_test[0][len(X_test[0])-1]])               
+                
+            print(X_test[0])
+            print(to_day_price)
+            print(predicted_stock_price)
+            # Strategy 2
+            
+            # {0:Down,1:UP}
+            forecast = 0
+            if to_day_price >= predicted_stock_price:
+                # predict Down
+                forecast = Stock_Action(0)
+                print("predict Down", forecast)
+            else:
+                # Predict UP
+                forecast = Stock_Action(1)
+                print("predict Up", forecast)
+            if first_one:
+                first_one = False
+            to_day_price = predicted_stock_price
+            output_file.writelines(str(forecast)+"\n")
 
 
 if __name__ == "__main__":
@@ -231,18 +264,19 @@ if __name__ == "__main__":
     train_x, train_y, test_X = preProcessData(training_data, test_data,
                                               scaler_x, DayTime_Step)
 
-    # setting & compile & fit model
-    model_1, history = LSTM_Mode(train_x, train_y, DayTime_Step, 1)
-    plt.plot(history.history['loss'], label='Training Loss')
-    plt.plot(history.history['val_loss'], label='Validation Loss')
-    plt.xlabel('Epoch')
-    plt.title('Training and Validation Loss by LSTM')
-    plt.legend()
-    plt.show()
+    # # setting & compile & fit model
+    # model_1, history = LSTM_Mode(train_x, train_y, DayTime_Step, 1)
+    # plt.plot(history.history['loss'], label='Training Loss')
+    # plt.plot(history.history['val_loss'], label='Validation Loss')
+    # plt.xlabel('Epoch')
+    # plt.title('Training and Validation Loss by LSTM')
+    # plt.legend()
+    # plt.show()
 
     # For Test Use
     model_1 = keras.models.load_model('./LTMS_mode.h5')
 
+    # ----
     X_test = []
     for i in range(DayTime_Step, len(test_X)):
         X_test.append(test_X[i-DayTime_Step:i-1, 0])
@@ -254,65 +288,41 @@ if __name__ == "__main__":
     predicted_stock_price = scaler_x.inverse_transform(predicted_stock_price)
 
     plt.plot(test_data['Open'].values, color='black',
-             label='Real Test Stock Price')
+              label='Real Test Stock Price')
     plt.plot(predicted_stock_price, color='green',
-             label='Predicted Stock Price')
+              label='Predicted Stock Price')
     plt.title('Stock Prediction')
     plt.xlabel('Time(days)')
     plt.ylabel('Stock Price')
     plt.legend()
     plt.show()
-
-        
-    # # -------------    
-    # # predict_data = scaler_y.transform(predict_data)
-    # # predict_data = [predict_data[-DayTime_Step:].to_numpy()]
-    # predict_data = np.delete(predict_data, np.s_[DayTime_Step:], axis=1)
-    # print(predict_data)
-    # print(type(predict_data))
-    # predict = model_1.predict(predict_data)
-    # print(predict)
-    
-    # train_predict_new = np.zeros(shape=(len(predict), Data_Length))
-    # train_predict_new[:, 0] = predict[:, 0]
-    # print(train_predict_new)
-    # trainPredict = scaler_y.inverse_transform(train_predict_new)[:, 0]
-    # print(trainPredict)
-    
-    # print(Data)
-    # predict = model_1.predict(Data)
-    # print(predict)
-    # print(scaler_y.inverse_transform(predict)[:, 0])
-    
-    # --------------------------------------
-    # # predict_data =[-DayTime_Step:]
-    # test_data_close = test_data['Close']
-    # # print(test_data_close)
-    # # print(type(test_data_close))
-    # with open(args.output, "w") as output_file:
-    #     # for (col_Name, col_Data) in test_data.iteritems():
-    #     # for column in test_data[["Close"]]:
-    #     # for index in test_data.index:
-    #     for i in range(len(test_data_close) -1 ):
-    #         # We will perform your action as the open price in the next day.
-    #         # print(test_data_close[i])
-            
-    #         train_predict_new = np.zeros(shape=(1, Data_Length))
-    #         train_predict_new[:, 0] = test_data_close[i]
-    #         # print(train_predict_new)
-    #         trainPredict = scaler_y.transform(train_predict_new)[:, 0]
-    #         # print(trainPredict)
-            
-    #         predict = model_1.predict(np.array(trainPredict, ndmin=2))
-    #         # predict = model_1.predict(np.array(test_data_close[i], ndmin=2))
-    #         train_predict_new = np.zeros(shape=(len(predict), Data_Length))
-    #         train_predict_new[:, 0] = predict[:, 0]
-    #         trainPredict = scaler_y.inverse_transform(train_predict_new)[:, 0]
-    #         print(trainPredict)
-
-
-    #         # action = trader.predict_action(row)
-    # #         output_file.write(action)
-
-    # #         # this is your option, you can leave it empty.
-    # #         trader.re_training()
+    # ----
+    # print(test_X)
+    Predicted_Action_Output(args, model_1, DayTime_Step, test_X)
+    # with open(args.output, 'w') as output_file:
+    #     for i in range(DayTime_Step, len(test_X)):
+    #         X_test = []
+    #         X_test.append(test_X[i-DayTime_Step:i-1, 0])
+    #         X_test = np.array(X_test)
+    #         X_test = np.reshape(X_test, (X_test.shape[0], X_test.shape[1], 1))
+    #         # print("count:", i, X_test)
+    #         predicted_stock_price = model_1.predict(X_test)
+    #         # # print("predicted_stock_price:", predicted_stock_price)
+    #         # # #使用sc的 inverse_transform將股價轉為歸一化前
+    #         predicted_stock_price = scaler_x.inverse_transform(predicted_stock_price)
+    #         # print("Count", i, "predicted_stock_price:", predicted_stock_price)
+    #         # Strategy 1
+    #         to_day_price = X_test[0][len(X_test[0])-1]
+    #         # print(X_test[0])
+    #         # print(to_day_price)
+    #         # {0:Down,1:UP}
+    #         forecast = 0
+    #         if to_day_price >= predicted_stock_price:
+    #             # predict Down
+    #             forecast = Stock_Action(0)
+    #             print("predict Down", forecast)
+    #         else:
+    #             # Predict UP
+    #             forecast = Stock_Action(1)
+    #             print("predict Up", forecast)
+    #         output_file.writelines(str(forecast)+"\n")
