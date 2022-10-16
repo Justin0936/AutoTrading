@@ -1,11 +1,8 @@
-# You can write code above the if-main block.
 # Import
 import pandas as pd
 import numpy as np
-# import seaborn as sns
 import matplotlib.pyplot as plt
 # %matplotlib inline
-
 
 from sklearn.preprocessing import MinMaxScaler
 # from sklearn.model_selection import train_test_split
@@ -15,7 +12,8 @@ from keras.models import Sequential, load_model
 from keras.layers import LSTM, Dense, Dropout, Flatten
 from tensorflow.keras.callbacks import EarlyStopping
 from functools import reduce
-import tensorflow as tf
+# import tensorflow as tf
+
 
 cust_callback = [
     EarlyStopping(monitor='val_loss', patience=30, verbose=2)
@@ -107,56 +105,17 @@ def LSTM_Mode(X_train, y_train, input_length, input_dim):
     # print (shape)
     # Setting Model
     model = Sequential()
-    # model.add(LSTM(50, input_shape=(shape, input_dim),
-    #                 return_sequences=True, dropout=0.3, recurrent_dropout=d))
-    
-    # model.add(LSTM(100, input_shape=(shape, input_dim),
-    #                 return_sequences=True))
-    # model.add(Dropout(d))
-    
-    # model.add(LSTM(100, activation='relu'))
-    # model.add(Dropout(d))
-    
-    # ---------------
-    # model.add(LSTM(256, input_shape=(shape, input_dim), return_sequences=True))
-    # # model.add(Dropout(d))
-    # # model.add(LSTM(128, input_shape=(shape, input_dim), return_sequences=True))
-    # # model.add(Dropout(d))
-    # # model.add(LSTM(64, input_shape=(shape, input_dim), return_sequences=True))
-    # # # model.add(Dropout(d))
-    # model.add(LSTM(16, input_shape=(shape, input_dim),return_sequences=False))
-    # model.add(Dropout(d))
-    # ----------------
-
-    # model.add(LSTM(256, input_shape=(shape, input_dim),
-    #                 return_sequences=True, dropout=0.3, recurrent_dropout=d))
-    # model.add(Dropout(d))
-    # model.add(LSTM(128, input_shape=(shape, input_dim),
-    #                 return_sequences=True, dropout=0.25, recurrent_dropout=d))
-    # model.add(Dropout(d))
-    # model.add(LSTM(64, input_shape=(shape, input_dim),
-    #                 return_sequences=True, dropout=0.2, recurrent_dropout=d))
-    # model.add(Dropout(d))
-    # model.add(LSTM(16, input_shape=(shape, input_dim),
-    #                 return_sequences=True, dropout=0.2, recurrent_dropout=d))
-    # model.add(Dropout(d))
-    model.add(LSTM(units = 256, return_sequences = True, input_shape = (shape, input_dim)))
-    model.add(LSTM(units = 100, return_sequences = True))
+    model.add(LSTM(units=256, return_sequences=True,
+                   input_shape=(shape, input_dim)))
+    model.add(LSTM(units=100, return_sequences=True))
     model.add(Dropout(d))
     model.add(Flatten())
     model.add(Dense(units=128))
     model.add(Dense(units=32))
     # linear / softmax(多分類) / sigmoid(二分法)
     model.add(Dense(1, activation='linear'))
-    # model.add(keras.layers.TimeDistributed(Dense(1, activation='linear')))
 
-    # optimizer = tf.keras.optimizers.Adam(lr=0.00005)
-    # model.compile(loss='mse', optimizer=optimizer, metrics=['accuracy'])
-    # loss=mse/categorical_crossentropy
-    # model.compile(loss='mse', optimizer='adam', metrics=['accuracy'])
     model.compile(loss='mean_squared_error', optimizer='adam')
-    # model.compile(loss='mean_squared_error', optimizer=optimizer, metrics=['accuracy'])
-    
     model.summary()
     history = model.fit(X_train, y_train, batch_size=16, epochs=1000,
                         validation_split=0.2, verbose=2, shuffle=False,
@@ -261,7 +220,7 @@ def Predicted_Action_Output(args, model_1, DayTime_Step, test_X):
 
 def Predicted_Action_Output_2(args, model_1, DayTime_Step, test_X):
     # Strategy 2
-    first_one = True
+    # first_one = True
     with open(args.output, 'w') as output_file:
         for i in range(DayTime_Step, len(test_X)-1):
             X_test = []
@@ -269,6 +228,7 @@ def Predicted_Action_Output_2(args, model_1, DayTime_Step, test_X):
             X_test = np.array(X_test)
             X_test = np.reshape(X_test, (X_test.shape[0], X_test.shape[1], 1))
             # print("count:", i, X_test)
+            # print("count:", i, scaler_x.inverse_transform(X_test[0]))
             predicted_stock_price = model_1.predict(X_test)
             # # print("predicted_stock_price:", predicted_stock_price)
             # # #使用sc的 inverse_transform將股價轉為歸一化前
@@ -283,9 +243,9 @@ def Predicted_Action_Output_2(args, model_1, DayTime_Step, test_X):
 
             # Strategy 3
             to_day_price = movingAverage(scaler_x.inverse_transform(X_test[0]))
-            print(to_day_price)
+            # print(to_day_price)
             to_day_price = to_day_price[len(to_day_price)-1]
-            print(to_day_price)
+            # print(to_day_price)
 
             # print(to_day_price)
             # print(predicted_stock_price)
@@ -335,18 +295,18 @@ if __name__ == "__main__":
                                               scaler_x, DayTime_Step)
 
     # # setting & compile & fit model
-    # model_1, history = LSTM_Mode(train_x, train_y, DayTime_Step, 1)
-    # plt.plot(history.history['loss'], label='Training Loss')
-    # plt.plot(history.history['val_loss'], label='Validation Loss')
-    # plt.xlabel('Epoch')
-    # plt.title('Training and Validation Loss by LSTM')
-    # plt.legend()
-    # plt.show()
+    model_1, history = LSTM_Mode(train_x, train_y, DayTime_Step, 1)
+    plt.plot(history.history['loss'], label='Training Loss')
+    plt.plot(history.history['val_loss'], label='Validation Loss')
+    plt.xlabel('Epoch')
+    plt.title('Training and Validation Loss by LSTM')
+    plt.legend()
+    plt.show()
 
     # For Test Use
-    model_1 = keras.models.load_model('./LTMS_mode.h5')
+    model_1 = load_model('./LTMS_mode.h5')
 
-    # ----
+    # # ----
     X_test = []
     for i in range(DayTime_Step, len(test_X)):
         X_test.append(test_X[i-DayTime_Step:i-1, 0])
@@ -366,33 +326,7 @@ if __name__ == "__main__":
     plt.ylabel('Stock Price')
     plt.legend()
     plt.show()
-    # ----
-    # print(test_X)
-    Predicted_Action_Output_2(args, model_1, DayTime_Step, test_X)
-    # with open(args.output, 'w') as output_file:
-    #     for i in range(DayTime_Step, len(test_X)):
-    #         X_test = []
-    #         X_test.append(test_X[i-DayTime_Step:i-1, 0])
-    #         X_test = np.array(X_test)
-    #         X_test = np.reshape(X_test, (X_test.shape[0], X_test.shape[1], 1))
-    #         # print("count:", i, X_test)
-    #         predicted_stock_price = model_1.predict(X_test)
-    #         # # print("predicted_stock_price:", predicted_stock_price)
-    #         # # #使用sc的 inverse_transform將股價轉為歸一化前
-    #         predicted_stock_price = scaler_x.inverse_transform(predicted_stock_price)
-    #         # print("Count", i, "predicted_stock_price:", predicted_stock_price)
-    #         # Strategy 1
-    #         to_day_price = X_test[0][len(X_test[0])-1]
-    #         # print(X_test[0])
-    #         # print(to_day_price)
-    #         # {0:Down,1:UP}
-    #         forecast = 0
-    #         if to_day_price >= predicted_stock_price:
-    #             # predict Down
-    #             forecast = Stock_Action(0)
-    #             print("predict Down", forecast)
-    #         else:
-    #             # Predict UP
-    #             forecast = Stock_Action(1)
-    #             print("predict Up", forecast)
-    #         output_file.writelines(str(forecast)+"\n")
+    # # ----
+    # print(len(test_X))
+    Predicted_Action_Output(args, model_1, DayTime_Step, test_X)
+    # Predicted_Action_Output_2(args, model_1, DayTime_Step, test_X)
