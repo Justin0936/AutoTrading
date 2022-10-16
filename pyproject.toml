@@ -1,16 +1,14 @@
 [tool.poetry]
-name = "dsai-hw2-2021"
+name = "mlds-hw1-2022"
 version = "0.1.0"
-description = ""
-authors = ["liumi666 <whitepepper4140@gmail.com>"]
+description = "In this HW, we will implement a very aged prediction problem from the financial field. Given a series of stock prices, including daily open, high, low, and close prices, decide your daily action and make your best profit for the future trading. "
+authors = ["Justin.Wu <P77111142@gs.ncku.edu.tw>"]
 readme = "README.md"
-packages = [{include = "dsai_hw2_2021"}]
+packages = [{include = "mlds_hw1_2022"}]
 
 [tool.poetry.dependencies]
-python = "^3.9"
-numpy = "1.19.5"
-pandas = "1.1.5"
-scikit-learn = "0.24.1"
+python = "^3.10"
+pandas = "^1.5.0"
 
 
 [build-system]
